@@ -10,7 +10,7 @@ const xmlDoc = `
     <?xml version="1.0"?>
 <catalog>
    <!-- book list-->
-   <book id="bk101">
+   <book id="bk101-á📖b">
       <author>Gambardella, Matthew</author>
       <title>XML Developer's Guide</title>
       <genre>Computer</genre>
@@ -47,8 +47,8 @@ func TestXPath(t *testing.T) {
 	if list := Find(doc, "//book"); len(list) != 3 {
 		t.Fatal("count(//book) != 3")
 	}
-	if node := FindOne(doc, "//book[@id='bk101']"); node == nil {
-		t.Fatal("//book[@id='bk101] is not found")
+	if node := FindOne(doc, "//book[@id='bk101-á📖b']"); node == nil {
+		t.Fatal("//book[@id='bk101-á📖b] is not found")
 	}
 	if node := FindOne(doc, "//book[price>=44.95]"); node == nil {
 		t.Fatal("//book/price>=44.95 is not found")
@@ -76,8 +76,8 @@ func TestXPath(t *testing.T) {
 		t.Fatal("FindEachWithBreak failed to stop.")
 	}
 	node := FindOne(doc, "//book[1]")
-	if node.SelectAttr("id") != "bk101" {
-		t.Fatal("//book[1]/@id != bk101")
+	if node.SelectAttr("id") != "bk101-á📖b" {
+		t.Fatal("//book[1]/@id != bk101-á📖b")
 	}
 }
 
