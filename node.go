@@ -100,6 +100,9 @@ func outputXML(buf *bytes.Buffer, n *Node) {
 	}
 	if n.Type == DeclarationNode {
 		buf.WriteString("?>")
+	} else if (n.FirstChild == nil) {
+		buf.WriteString("/>")
+		return
 	} else {
 		buf.WriteString(">")
 	}

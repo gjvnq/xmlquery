@@ -300,9 +300,11 @@ func TestEscapeOutputValue(t *testing.T) {
 
 }
 func TestOutputXMLWithNamespacePrefix(t *testing.T) {
-	s := `<?xml version="1.0" encoding="UTF-8"?><S:Envelope xmlns:S="http://schemas.xmlsoap.org/soap/envelope/"><S:Body></S:Body></S:Envelope>`
+	s := `<?xml version="1.0" encoding="UTF-8"?><S:Envelope xmlns:S="http://schemas.xmlsoap.org/soap/envelope/"><S:Body/></S:Envelope>`
 	doc, _ := Parse(strings.NewReader(s))
 	if s != doc.OutputXML(false) {
+		println(s)
+		println(doc.OutputXML(false))
 		t.Fatal("xml document missing some characters")
 	}
 }
