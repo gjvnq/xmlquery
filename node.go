@@ -155,6 +155,35 @@ func outputXML(buf io.Writer, n *Node, depth int, pretty bool) {
 	}
 }
 
+// Recursivelly dereference nodes so GC can delete them
+func (n *Node) DeleteMe() {
+	for child := n.FirstChild; child != nil; child = child.NextSibling {
+		child.DeleteMe()
+		child.Parent = nil
+	}
+	if n.Parent != nil {
+		if n == n.Parent.FirstChild {
+			n.Parent.FirstChild = n.NextSibling
+		}
+		if n == n.Parent.LastChild {
+			n.Parent.LastChild = n.PrevSibling
+		}
+	}
+	if n.PrevSibling != nil {
+		n.PrevSibling.NextSibling = n.NextSibling
+	}
+	if n.NextSibling != nil {
+		n.NextSibling.PrevSibling = n.PrevSibling
+	}
+	n.Attr = nil
+	n.Info = nil
+	n.FirstChild = nil
+	n.LastChild = nil
+	n.NextSibling = nil
+	n.PrevSibling = nil
+	n.Parent = nil
+}
+
 // OutputXML returns the text that including tags name.
 func (n *Node) OutputXML(self bool) string {
 	var buf bytes.Buffer
