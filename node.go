@@ -43,6 +43,9 @@ type Node struct {
 	NamespaceURI string
 	Attr         []xml.Attr
 
+	// Application specific field that is never encoded to XML
+	ExtraData	interface{}
+
 	level int // node level in the tree
 }
 

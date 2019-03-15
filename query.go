@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/antchfx/xpath"
+	"github.com/gjvnq/xpath"
 )
 
 // SelectElements finds child elements with the specified name.
