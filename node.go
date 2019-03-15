@@ -70,50 +70,50 @@ func (n *Node) InnerText() string {
 	return buf.String()
 }
 
-func outputXML(buf *bytes.Buffer, n *Node) {
+func outputXML(buf io.Writer, n *Node) {
 	if n.Type == TextNode {
 		xml.EscapeText(buf, []byte(strings.TrimSpace(n.Data)))
 		return
 	}
 	if n.Type == CommentNode {
-		buf.WriteString("<!--")
-		buf.WriteString(n.Data)
-		buf.WriteString("-->")
+		buf.Write([]byte("<!--"))
+		buf.Write([]byte(n.Data))
+		buf.Write([]byte("-->"))
 		return
 	}
 	if n.Type == DeclarationNode {
-		buf.WriteString("<?" + n.Data)
+		buf.Write([]byte("<?" + n.Data))
 	} else {
 		if n.Prefix == "" {
-			buf.WriteString("<" + n.Data)
+			buf.Write([]byte("<" + n.Data))
 		} else {
-			buf.WriteString("<" + n.Prefix + ":" + n.Data)
+			buf.Write([]byte("<" + n.Prefix + ":" + n.Data))
 		}
 	}
 
 	for _, attr := range n.Attr {
 		if attr.Name.Space != "" {
-			buf.WriteString(fmt.Sprintf(` %s:%s="%s"`, attr.Name.Space, attr.Name.Local, attr.Value))
+			buf.Write([]byte(fmt.Sprintf(` %s:%s="%s"`, attr.Name.Space, attr.Name.Local, attr.Value)))
 		} else {
-			buf.WriteString(fmt.Sprintf(` %s="%s"`, attr.Name.Local, attr.Value))
+			buf.Write([]byte(fmt.Sprintf(` %s="%s"`, attr.Name.Local, attr.Value)))
 		}
 	}
 	if n.Type == DeclarationNode {
-		buf.WriteString("?>")
+		buf.Write([]byte("?>"))
 	} else if (n.FirstChild == nil) {
-		buf.WriteString("/>")
+		buf.Write([]byte("/>"))
 		return
 	} else {
-		buf.WriteString(">")
+		buf.Write([]byte(">"))
 	}
 	for child := n.FirstChild; child != nil; child = child.NextSibling {
 		outputXML(buf, child)
 	}
 	if n.Type != DeclarationNode {
 		if n.Prefix == "" {
-			buf.WriteString(fmt.Sprintf("</%s>", n.Data))
+			buf.Write([]byte(fmt.Sprintf("</%s>", n.Data)))
 		} else {
-			buf.WriteString(fmt.Sprintf("</%s:%s>", n.Prefix, n.Data))
+			buf.Write([]byte(fmt.Sprintf("</%s:%s>", n.Prefix, n.Data)))
 		}
 	}
 }
@@ -133,12 +133,12 @@ func (n *Node) OutputXML(self bool) string {
 }
 
 // Same as OutputXML.
-func (n *Node) OutputXMLToBuffer(buf *bytes.Buffer, self bool) {
+func (n *Node) OutputXMLToWriter(output io.Writer, self bool) {
 	if self {
-		outputXML(buf, n)
+		outputXML(output, n)
 	} else {
 		for n := n.FirstChild; n != nil; n = n.NextSibling {
-			outputXML(buf, n)
+			outputXML(output, n)
 		}
 	}
 }
