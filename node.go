@@ -132,6 +132,17 @@ func (n *Node) OutputXML(self bool) string {
 	return buf.String()
 }
 
+// Same as OutputXML.
+func (n *Node) OutputXMLToBuffer(buf *bytes.Buffer, self bool) {
+	if self {
+		outputXML(buf, n)
+	} else {
+		for n := n.FirstChild; n != nil; n = n.NextSibling {
+			outputXML(buf, n)
+		}
+	}
+}
+
 func addAttr(n *Node, key, val string) {
 	var attr xml.Attr
 	if i := strings.Index(key, ":"); i > 0 {
