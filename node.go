@@ -5,11 +5,11 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"golang.org/x/net/html/charset"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
-
-	"golang.org/x/net/html/charset"
 )
 
 // A NodeType is the type of a Node.
@@ -44,7 +44,7 @@ type Node struct {
 	Attr         []xml.Attr
 
 	// Application specific field that is never encoded to XML
-	ExtraData	interface{}
+	Info interface{}
 
 	level int // node level in the tree
 }
@@ -70,15 +70,36 @@ func (n *Node) InnerText() string {
 	return buf.String()
 }
 
-func outputXML(buf io.Writer, n *Node) {
+func outputXML(buf io.Writer, n *Node, depth int, pretty bool) {
+	if n.Type == TextNode && pretty {
+		space := regexp.MustCompile(`[\s\p{Zs}]+`)
+		pretty_str := space.ReplaceAllString(n.Data, " ")
+		if len(strings.TrimSpace(pretty_str)) != 0 {
+			for i := 0; i < depth; i++ {
+				buf.Write([]byte("\t"))
+			}
+			buf.Write([]byte(pretty_str))
+			buf.Write([]byte("\n"))
+			return
+		}
+	}
+
 	if n.Type == TextNode {
 		xml.EscapeText(buf, []byte(strings.TrimSpace(n.Data)))
 		return
+	}
+	if pretty {
+		for i := 0; i < depth; i++ {
+			buf.Write([]byte("\t"))
+		}
 	}
 	if n.Type == CommentNode {
 		buf.Write([]byte("<!--"))
 		buf.Write([]byte(n.Data))
 		buf.Write([]byte("-->"))
+		if pretty {
+			buf.Write([]byte("\n"))
+		}
 		return
 	}
 	if n.Type == DeclarationNode {
@@ -100,14 +121,27 @@ func outputXML(buf io.Writer, n *Node) {
 	}
 	if n.Type == DeclarationNode {
 		buf.Write([]byte("?>"))
-	} else if (n.FirstChild == nil) {
+	} else if n.FirstChild == nil {
 		buf.Write([]byte("/>"))
+		if pretty {
+			buf.Write([]byte("\n"))
+		}
 		return
 	} else {
 		buf.Write([]byte(">"))
+		if pretty {
+			buf.Write([]byte("\n"))
+		}
 	}
+	depth++
 	for child := n.FirstChild; child != nil; child = child.NextSibling {
-		outputXML(buf, child)
+		outputXML(buf, child, depth, pretty)
+	}
+	depth--
+	if pretty {
+		for i := 0; i < depth; i++ {
+			buf.Write([]byte("\t"))
+		}
 	}
 	if n.Type != DeclarationNode {
 		if n.Prefix == "" {
@@ -116,16 +150,19 @@ func outputXML(buf io.Writer, n *Node) {
 			buf.Write([]byte(fmt.Sprintf("</%s:%s>", n.Prefix, n.Data)))
 		}
 	}
+	if pretty {
+		buf.Write([]byte("\n"))
+	}
 }
 
 // OutputXML returns the text that including tags name.
 func (n *Node) OutputXML(self bool) string {
 	var buf bytes.Buffer
 	if self {
-		outputXML(&buf, n)
+		outputXML(&buf, n, 0, false)
 	} else {
 		for n := n.FirstChild; n != nil; n = n.NextSibling {
-			outputXML(&buf, n)
+			outputXML(&buf, n, 0, false)
 		}
 	}
 
@@ -133,12 +170,12 @@ func (n *Node) OutputXML(self bool) string {
 }
 
 // Same as OutputXML.
-func (n *Node) OutputXMLToWriter(output io.Writer, self bool) {
+func (n *Node) OutputXMLToWriter(output io.Writer, pretty bool, self bool) {
 	if self {
-		outputXML(output, n)
+		outputXML(output, n, 0, pretty)
 	} else {
 		for n := n.FirstChild; n != nil; n = n.NextSibling {
-			outputXML(output, n)
+			outputXML(output, n, 0, pretty)
 		}
 	}
 }

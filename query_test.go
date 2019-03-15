@@ -66,13 +66,13 @@ func TestXPath(t *testing.T) {
 	}
 	c = 0
 	FindEachWithBreak(doc, "//book", func(i int, n *Node) bool {
-		if c == l - 1 {
+		if c == l-1 {
 			return false
 		}
 		c++
 		return true
 	})
-	if c != l - 1 {
+	if c != l-1 {
 		t.Fatal("FindEachWithBreak failed to stop.")
 	}
 	node := FindOne(doc, "//book[1]")
