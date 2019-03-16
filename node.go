@@ -233,6 +233,10 @@ func (n *Node) OutputXMLToWriter(output io.Writer, pretty bool, self bool) {
 	}
 }
 
+func (n *Node) AddAttr(key, val string) {
+	addAttr(n, key, val)
+}
+
 func addAttr(n *Node, key, val string) {
 	var attr xml.Attr
 	if i := strings.Index(key, ":"); i > 0 {
@@ -250,6 +254,10 @@ func addAttr(n *Node, key, val string) {
 	n.Attr = append(n.Attr, attr)
 }
 
+func (n *Node) AddChild(child *Node) {
+	addChild(n, child)
+}
+
 func addChild(parent, n *Node) {
 	n.Parent = parent
 	if parent.FirstChild == nil {
@@ -260,6 +268,10 @@ func addChild(parent, n *Node) {
 	}
 
 	parent.LastChild = n
+}
+
+func (n *Node) AddSibling(sibling *Node) {
+	addSibling(sibling, n)
 }
 
 func addSibling(sibling, n *Node) {
