@@ -49,6 +49,30 @@ type Node struct {
 	level int // node level in the tree
 }
 
+func xml_name2string(name xml.Name) string {
+	if name.Space == "" {
+		return name.Local
+	}
+	return name.Space + ":" + name.Local
+}
+
+func (n *Node) String() string {
+	switch n.Type {
+	case ElementNode:
+		ans := "Node{<" + n.Data
+		for _, attr := range n.Attr {
+			ans += " "
+			ans += xml_name2string(attr.Name)
+			ans += fmt.Sprintf("=%q", attr.Value)
+		}
+		ans += ">}"
+		return ans
+	case TextNode:
+		return fmt.Sprintf("Node{%q}", n.Data)
+	}
+	return "Node{}"
+}
+
 // InnerText returns the text between the start and end tags of the object.
 func (n *Node) InnerText() string {
 	var output func(*bytes.Buffer, *Node)
