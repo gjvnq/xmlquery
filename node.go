@@ -268,7 +268,13 @@ func (n *Node) OutputXMLToWriter(output io.Writer, pretty bool, self bool) {
 	}
 }
 
-func (n *Node) AddAttr(key, val string) {
+func (n *Node) SetAttr(key, val string) {
+	for _, attr := range n.Attr {
+		if xml_name2string(attr.Name) == key {
+			attr.Value = val
+			return
+		}
+	}
 	addAttr(n, key, val)
 }
 
