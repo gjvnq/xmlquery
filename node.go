@@ -56,6 +56,41 @@ func xml_name2string(name xml.Name) string {
 	return name.Space + ":" + name.Local
 }
 
+func (n *Node) NthChild() int {
+	if n.Parent == nil {
+		return 0
+	}
+	ans := 0
+	for child := n.Parent.FirstChild; child != nil; child = child.NextSibling {
+		if child == n {
+			return ans
+		}
+		ans++
+	}
+	return ans
+}
+
+func (n *Node) NthChildOfElem() int {
+	if n.Parent == nil {
+		return 0
+	}
+	check_data := n.Type == ElementNode
+	ans := 0
+	for child := n.Parent.FirstChild; child != nil; child = child.NextSibling {
+		if child == n {
+			return ans
+		}
+		if n.Type == child.Type {
+			if !check_data {
+				ans++
+			} else if n.Data == child.Data {
+				ans++
+			}
+		}
+	}
+	return ans
+}
+
 func (n *Node) String() string {
 	switch n.Type {
 	case ElementNode:
@@ -235,6 +270,24 @@ func (n *Node) OutputXMLToWriter(output io.Writer, pretty bool, self bool) {
 
 func (n *Node) AddAttr(key, val string) {
 	addAttr(n, key, val)
+}
+
+func (n *Node) GetAttrWithDefault(key, empty string) string {
+	ans, ok := n.GetAttr(key)
+	if ok {
+		return ans
+	} else {
+		return empty
+	}
+}
+
+func (n *Node) GetAttr(key string) (string, bool) {
+	for _, attr := range n.Attr {
+		if xml_name2string(attr.Name) == key {
+			return attr.Value, true
+		}
+	}
+	return "", false
 }
 
 func addAttr(n *Node, key, val string) {
