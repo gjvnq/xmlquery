@@ -7,7 +7,7 @@ go:
 
 install:
   - go get golang.org/x/net/html/charset
-  - go get github.com/antchfx/xpath
+  - go get github.com/gjvnq/xpath
   - go get github.com/mattn/goveralls
 
 script:
