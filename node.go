@@ -214,7 +214,7 @@ func outputXML(buf io.Writer, n *Node, depth int, pretty bool) {
 	}
 }
 
-// Recursivelly dereference nodes so GC can delete them
+// Dereference this node from others so GC can delete them. Also fixes pointers of other nodes.
 func (n *Node) DeleteMe() {
 	for child := n.FirstChild; child != nil; child = child.NextSibling {
 		child.DeleteMe()
@@ -268,14 +268,32 @@ func (n *Node) OutputXMLToWriter(output io.Writer, pretty bool, self bool) {
 	}
 }
 
-func (n *Node) SetAttr(key, val string) {
+// Returns true if the attribute existed and was altered; false if it was added.
+func (n *Node) SetAttr(key, val string) bool {
 	for _, attr := range n.Attr {
 		if xml_name2string(attr.Name) == key {
 			attr.Value = val
-			return
+			return true
 		}
 	}
 	addAttr(n, key, val)
+	return false
+}
+
+// Returns true if the attribute existed and was deleted; false otherwise.
+func (n *Node) DelAttr(key string) bool {
+	index := -1
+	for i, attr := range n.Attr {
+		if xml_name2string(attr.Name) == key {
+			index = i
+			break
+		}
+	}
+	if index >= 0 {
+		n.Attr = append(n.Attr[:index], n.Attr[index+1:]...)
+		return true
+	}
+	return false
 }
 
 func (n *Node) GetAttrWithDefault(key, empty string) string {
