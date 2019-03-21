@@ -363,6 +363,28 @@ func addSibling(sibling, n *Node) {
 	}
 }
 
+func (n *Node) AddBefore(sibling *Node) {
+	if n.Parent != nil && n.Parent.FirstChild == n {
+		n.Parent.FirstChild = sibling
+	}
+	sibling.NextSibling = n
+	if n.PrevSibling != nil {
+		n.PrevSibling.NextSibling = sibling
+	}
+	n.PrevSibling = sibling
+}
+
+func (n *Node) AddAfter(sibling *Node) {
+	if n.Parent != nil && n.Parent.LastChild == n {
+		n.Parent.LastChild = sibling
+	}
+	sibling.PrevSibling = n
+	if n.NextSibling != nil {
+		n.NextSibling.PrevSibling = sibling
+	}
+	n.NextSibling = sibling
+}
+
 // LoadURL loads the XML document from the specified URL.
 func LoadURL(url string) (*Node, error) {
 	resp, err := http.Get(url)

@@ -346,3 +346,41 @@ func TestOutputXMLWithCommentNode(t *testing.T) {
 		t.Fatal("missing some comment-node")
 	}
 }
+
+func TestAddBefore(t *testing.T) {
+	s := `<?xml?><a/>`
+	doc, _ := Parse(strings.NewReader(s))
+
+	n1 := doc.SelectElement("a")
+	if n1 == nil {
+		t.Fatal("missing <a>")
+	}
+	n2 := new(Node)
+	n2.Type = ElementNode
+	n2.Data = "b"
+	n1.AddBefore(n2)
+	got := doc.OutputXML(false)
+	expected := `<?xml?><b/><a/>`
+	if got != expected {
+		t.Fatalf("expected: %s\ngot: %s", expected, got)
+	}
+}
+
+func TestAddAfter(t *testing.T) {
+	s := `<?xml?><a/>`
+	doc, _ := Parse(strings.NewReader(s))
+
+	n1 := doc.SelectElement("a")
+	if n1 == nil {
+		t.Fatal("missing <a>")
+	}
+	n2 := new(Node)
+	n2.Type = ElementNode
+	n2.Data = "b"
+	n1.AddAfter(n2)
+	got := doc.OutputXML(false)
+	expected := `<?xml?><a/><b/>`
+	if got != expected {
+		t.Fatalf("expected: %s\ngot: %s", expected, got)
+	}
+}
