@@ -348,7 +348,7 @@ func TestOutputXMLWithCommentNode(t *testing.T) {
 }
 
 func TestAddBefore(t *testing.T) {
-	s := `<?xml?><a/>`
+	s := `<?xml?><a><tag1/><tag2>hi</tag2></a><b>hi2</b>`
 	doc, _ := Parse(strings.NewReader(s))
 
 	n1 := doc.SelectElement("a")
@@ -357,17 +357,36 @@ func TestAddBefore(t *testing.T) {
 	}
 	n2 := new(Node)
 	n2.Type = ElementNode
-	n2.Data = "b"
+	n2.Data = "new"
 	n1.AddBefore(n2)
 	got := doc.OutputXML(false)
-	expected := `<?xml?><b/><a/>`
+	expected := `<?xml?><new/><a><tag1/><tag2>hi</tag2></a><b>hi2</b>`
 	if got != expected {
-		t.Fatalf("expected: %s\ngot: %s", expected, got)
+		t.Fatalf("\nexpected: %s\ngot:      %s", expected, got)
 	}
 }
 
-func TestAddAfter(t *testing.T) {
-	s := `<?xml?><a/>`
+func TestAddBefore2(t *testing.T) {
+	s := `<?xml?><a><tag1/><tag2>hi</tag2></a><b>hi2</b>`
+	doc, _ := Parse(strings.NewReader(s))
+
+	n1 := doc.SelectElement("b")
+	if n1 == nil {
+		t.Fatal("missing <b>")
+	}
+	n2 := new(Node)
+	n2.Type = ElementNode
+	n2.Data = "new"
+	n1.AddBefore(n2)
+	got := doc.OutputXML(false)
+	expected := `<?xml?><a><tag1/><tag2>hi</tag2></a><new/><b>hi2</b>`
+	if got != expected {
+		t.Fatalf("\nexpected: %s\ngot:      %s", expected, got)
+	}
+}
+
+func TestAddAfter1(t *testing.T) {
+	s := `<?xml?><a><tag1/><tag2>hi</tag2></a><b>hi2</b>`
 	doc, _ := Parse(strings.NewReader(s))
 
 	n1 := doc.SelectElement("a")
@@ -376,11 +395,30 @@ func TestAddAfter(t *testing.T) {
 	}
 	n2 := new(Node)
 	n2.Type = ElementNode
-	n2.Data = "b"
+	n2.Data = "new"
 	n1.AddAfter(n2)
 	got := doc.OutputXML(false)
-	expected := `<?xml?><a/><b/>`
+	expected := `<?xml?><a><tag1/><tag2>hi</tag2></a><new/><b>hi2</b>`
 	if got != expected {
-		t.Fatalf("expected: %s\ngot: %s", expected, got)
+		t.Fatalf("\nexpected: %s\ngot:      %s", expected, got)
+	}
+}
+
+func TestAddAfter2(t *testing.T) {
+	s := `<?xml?><a><tag1/><tag2>hi</tag2></a><b>hi2</b>`
+	doc, _ := Parse(strings.NewReader(s))
+
+	n1 := doc.SelectElement("b")
+	if n1 == nil {
+		t.Fatal("missing <b>")
+	}
+	n2 := new(Node)
+	n2.Type = ElementNode
+	n2.Data = "new"
+	n1.AddAfter(n2)
+	got := doc.OutputXML(false)
+	expected := `<?xml?><a><tag1/><tag2>hi</tag2></a><b>hi2</b><new/>`
+	if got != expected {
+		t.Fatalf("\nexpected: %s\ngot:      %s", expected, got)
 	}
 }

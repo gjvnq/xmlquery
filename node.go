@@ -371,6 +371,7 @@ func (n *Node) AddBefore(sibling *Node) {
 	if n.PrevSibling != nil {
 		n.PrevSibling.NextSibling = sibling
 	}
+	sibling.PrevSibling = n.PrevSibling
 	n.PrevSibling = sibling
 }
 
@@ -382,6 +383,7 @@ func (n *Node) AddAfter(sibling *Node) {
 	if n.NextSibling != nil {
 		n.NextSibling.PrevSibling = sibling
 	}
+	sibling.NextSibling = n.NextSibling
 	n.NextSibling = sibling
 }
 
