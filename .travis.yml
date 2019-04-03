@@ -1,13 +1,11 @@
 language: go
 
 go:
-  - 1.6
-  - 1.7
   - 1.8
 
 install:
   - go get golang.org/x/net/html/charset
-  - go get github.com/antchfx/xpath
+  - go get github.com/gjvnq/xpath
   - go get github.com/mattn/goveralls
 
 script:

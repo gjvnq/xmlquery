@@ -300,9 +300,11 @@ func TestEscapeOutputValue(t *testing.T) {
 
 }
 func TestOutputXMLWithNamespacePrefix(t *testing.T) {
-	s := `<?xml version="1.0" encoding="UTF-8"?><S:Envelope xmlns:S="http://schemas.xmlsoap.org/soap/envelope/"><S:Body></S:Body></S:Envelope>`
+	s := `<?xml version="1.0" encoding="UTF-8"?><S:Envelope xmlns:S="http://schemas.xmlsoap.org/soap/envelope/"><S:Body/></S:Envelope>`
 	doc, _ := Parse(strings.NewReader(s))
 	if s != doc.OutputXML(false) {
+		println(s)
+		println(doc.OutputXML(false))
 		t.Fatal("xml document missing some characters")
 	}
 }
@@ -342,5 +344,123 @@ func TestOutputXMLWithCommentNode(t *testing.T) {
 	t.Log(n.OutputXML(false))
 	if e, g := "<name>Lenard</name>", n.OutputXML(false); strings.Index(g, e) == -1 {
 		t.Fatal("missing some comment-node")
+	}
+}
+
+func TestReparent(t *testing.T) {
+	s := `<?xml?><a/><b/><c/>`
+	doc, err := Parse(strings.NewReader(s))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	n1 := doc.SelectElement("b")
+	if n1 == nil {
+		t.Fatal("missing <b>")
+	}
+	n2 := new(Node)
+	n2.Type = ElementNode
+	n2.Data = "new"
+	n1.Reparent(n2)
+	got := doc.OutputXML(false)
+	expected := `<?xml?><a/><new><b/></new><c/>`
+	if got != expected {
+		t.Fatalf("\nexpected: %s\ngot:      %s", expected, got)
+	}
+}
+
+func TestAppendAttr(t *testing.T) {
+	s := `<?xml?><a/>`
+	doc, err := Parse(strings.NewReader(s))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	n1 := doc.SelectElement("a")
+	if n1 == nil {
+		t.Fatal("missing <a>")
+	}
+	n1.AppendAttr("class", "red")
+	n1.AppendAttr("class", "green")
+	got := doc.OutputXML(false)
+	expected := `<?xml?><a class="red green"/>`
+	if got != expected {
+		t.Fatalf("\nexpected: %s\ngot:      %s", expected, got)
+	}
+}
+
+func TestAddBefore(t *testing.T) {
+	s := `<?xml?><a><tag1/><tag2>hi</tag2></a><b>hi2</b>`
+	doc, _ := Parse(strings.NewReader(s))
+
+	n1 := doc.SelectElement("a")
+	if n1 == nil {
+		t.Fatal("missing <a>")
+	}
+	n2 := new(Node)
+	n2.Type = ElementNode
+	n2.Data = "new"
+	n1.AddBefore(n2)
+	got := doc.OutputXML(false)
+	expected := `<?xml?><new/><a><tag1/><tag2>hi</tag2></a><b>hi2</b>`
+	if got != expected {
+		t.Fatalf("\nexpected: %s\ngot:      %s", expected, got)
+	}
+}
+
+func TestAddBefore2(t *testing.T) {
+	s := `<?xml?><a><tag1/><tag2>hi</tag2></a><b>hi2</b>`
+	doc, _ := Parse(strings.NewReader(s))
+
+	n1 := doc.SelectElement("b")
+	if n1 == nil {
+		t.Fatal("missing <b>")
+	}
+	n2 := new(Node)
+	n2.Type = ElementNode
+	n2.Data = "new"
+	n1.AddBefore(n2)
+	got := doc.OutputXML(false)
+	expected := `<?xml?><a><tag1/><tag2>hi</tag2></a><new/><b>hi2</b>`
+	if got != expected {
+		t.Fatalf("\nexpected: %s\ngot:      %s", expected, got)
+	}
+}
+
+func TestAddAfter1(t *testing.T) {
+	s := `<?xml?><a><tag1/><tag2>hi</tag2></a><b>hi2</b>`
+	doc, _ := Parse(strings.NewReader(s))
+
+	n1 := doc.SelectElement("a")
+	if n1 == nil {
+		t.Fatal("missing <a>")
+	}
+	n2 := new(Node)
+	n2.Type = ElementNode
+	n2.Data = "new"
+	n1.AddAfter(n2)
+	got := doc.OutputXML(false)
+	expected := `<?xml?><a><tag1/><tag2>hi</tag2></a><new/><b>hi2</b>`
+	if got != expected {
+		t.Fatalf("\nexpected: %s\ngot:      %s", expected, got)
+	}
+}
+
+func TestAddAfter2(t *testing.T) {
+	s := `<?xml?><a><tag1/><tag2>hi</tag2></a><b>hi2</b>`
+	doc, _ := Parse(strings.NewReader(s))
+
+	n1 := doc.SelectElement("b")
+	if n1 == nil {
+		t.Fatal("missing <b>")
+	}
+	n2 := new(Node)
+	n2.Type = ElementNode
+	n2.Data = "new"
+	n1.AddAfter(n2)
+	got := doc.OutputXML(false)
+	expected := `<?xml?><a><tag1/><tag2>hi</tag2></a><b>hi2</b><new/>`
+	if got != expected {
+		t.Fatalf("\nexpected: %s\ngot:      %s", expected, got)
 	}
 }

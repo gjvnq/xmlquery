@@ -5,11 +5,11 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"golang.org/x/net/html/charset"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
-
-	"golang.org/x/net/html/charset"
 )
 
 // A NodeType is the type of a Node.
@@ -43,7 +43,69 @@ type Node struct {
 	NamespaceURI string
 	Attr         []xml.Attr
 
+	// Application specific field that is never encoded to XML
+	Info interface{}
+
 	level int // node level in the tree
+}
+
+func xml_name2string(name xml.Name) string {
+	if name.Space == "" {
+		return name.Local
+	}
+	return name.Space + ":" + name.Local
+}
+
+func (n *Node) NthChild() int {
+	if n.Parent == nil {
+		return 0
+	}
+	ans := 0
+	for child := n.Parent.FirstChild; child != nil; child = child.NextSibling {
+		if child == n {
+			return ans
+		}
+		ans++
+	}
+	return ans
+}
+
+func (n *Node) NthChildOfElem() int {
+	if n.Parent == nil {
+		return 0
+	}
+	check_data := n.Type == ElementNode
+	ans := 0
+	for child := n.Parent.FirstChild; child != nil; child = child.NextSibling {
+		if child == n {
+			return ans
+		}
+		if n.Type == child.Type {
+			if !check_data {
+				ans++
+			} else if n.Data == child.Data {
+				ans++
+			}
+		}
+	}
+	return ans
+}
+
+func (n *Node) String() string {
+	switch n.Type {
+	case ElementNode:
+		ans := "Node{<" + n.Data
+		for _, attr := range n.Attr {
+			ans += " "
+			ans += xml_name2string(attr.Name)
+			ans += fmt.Sprintf("=%q", attr.Value)
+		}
+		ans += ">}"
+		return ans
+	case TextNode:
+		return fmt.Sprintf("Node{%q}", n.Data)
+	}
+	return "Node{}"
 }
 
 // InnerText returns the text between the start and end tags of the object.
@@ -67,63 +129,198 @@ func (n *Node) InnerText() string {
 	return buf.String()
 }
 
-func outputXML(buf *bytes.Buffer, n *Node) {
+func outputXML(buf io.Writer, n *Node, depth int, pretty bool) {
+	if n.Type == TextNode && pretty {
+		space := regexp.MustCompile(`[\s\p{Zs}]+`)
+		pretty_str := space.ReplaceAllString(n.Data, " ")
+		if len(strings.TrimSpace(pretty_str)) != 0 {
+			for i := 0; i < depth; i++ {
+				buf.Write([]byte("\t"))
+			}
+			buf.Write([]byte(pretty_str))
+			buf.Write([]byte("\n"))
+			return
+		}
+	}
+
 	if n.Type == TextNode {
 		xml.EscapeText(buf, []byte(strings.TrimSpace(n.Data)))
 		return
 	}
+	if pretty {
+		for i := 0; i < depth; i++ {
+			buf.Write([]byte("\t"))
+		}
+	}
 	if n.Type == CommentNode {
-		buf.WriteString("<!--")
-		buf.WriteString(n.Data)
-		buf.WriteString("-->")
+		buf.Write([]byte("<!--"))
+		buf.Write([]byte(n.Data))
+		buf.Write([]byte("-->"))
+		if pretty {
+			buf.Write([]byte("\n"))
+		}
 		return
 	}
 	if n.Type == DeclarationNode {
-		buf.WriteString("<?" + n.Data)
+		buf.Write([]byte("<?" + n.Data))
 	} else {
 		if n.Prefix == "" {
-			buf.WriteString("<" + n.Data)
+			buf.Write([]byte("<" + n.Data))
 		} else {
-			buf.WriteString("<" + n.Prefix + ":" + n.Data)
+			buf.Write([]byte("<" + n.Prefix + ":" + n.Data))
 		}
 	}
 
 	for _, attr := range n.Attr {
 		if attr.Name.Space != "" {
-			buf.WriteString(fmt.Sprintf(` %s:%s="%s"`, attr.Name.Space, attr.Name.Local, attr.Value))
+			buf.Write([]byte(fmt.Sprintf(` %s:%s="%s"`, attr.Name.Space, attr.Name.Local, attr.Value)))
 		} else {
-			buf.WriteString(fmt.Sprintf(` %s="%s"`, attr.Name.Local, attr.Value))
+			buf.Write([]byte(fmt.Sprintf(` %s="%s"`, attr.Name.Local, attr.Value)))
 		}
 	}
 	if n.Type == DeclarationNode {
-		buf.WriteString("?>")
+		buf.Write([]byte("?>"))
+	} else if n.FirstChild == nil {
+		buf.Write([]byte("/>"))
+		if pretty {
+			buf.Write([]byte("\n"))
+		}
+		return
 	} else {
-		buf.WriteString(">")
+		buf.Write([]byte(">"))
+		if pretty {
+			buf.Write([]byte("\n"))
+		}
 	}
+	depth++
 	for child := n.FirstChild; child != nil; child = child.NextSibling {
-		outputXML(buf, child)
+		outputXML(buf, child, depth, pretty)
+	}
+	depth--
+	if pretty {
+		for i := 0; i < depth; i++ {
+			buf.Write([]byte("\t"))
+		}
 	}
 	if n.Type != DeclarationNode {
 		if n.Prefix == "" {
-			buf.WriteString(fmt.Sprintf("</%s>", n.Data))
+			buf.Write([]byte(fmt.Sprintf("</%s>", n.Data)))
 		} else {
-			buf.WriteString(fmt.Sprintf("</%s:%s>", n.Prefix, n.Data))
+			buf.Write([]byte(fmt.Sprintf("</%s:%s>", n.Prefix, n.Data)))
 		}
 	}
+	if pretty {
+		buf.Write([]byte("\n"))
+	}
+}
+
+// Dereference this node from others so GC can delete them. Also fixes pointers of other nodes.
+func (n *Node) DeleteMe() {
+	for child := n.FirstChild; child != nil; child = child.NextSibling {
+		child.DeleteMe()
+		child.Parent = nil
+	}
+	if n.Parent != nil {
+		if n == n.Parent.FirstChild {
+			n.Parent.FirstChild = n.NextSibling
+		}
+		if n == n.Parent.LastChild {
+			n.Parent.LastChild = n.PrevSibling
+		}
+	}
+	if n.PrevSibling != nil {
+		n.PrevSibling.NextSibling = n.NextSibling
+	}
+	if n.NextSibling != nil {
+		n.NextSibling.PrevSibling = n.PrevSibling
+	}
+	n.Attr = nil
+	n.Info = nil
+	n.FirstChild = nil
+	n.LastChild = nil
+	n.NextSibling = nil
+	n.PrevSibling = nil
+	n.Parent = nil
 }
 
 // OutputXML returns the text that including tags name.
 func (n *Node) OutputXML(self bool) string {
 	var buf bytes.Buffer
 	if self {
-		outputXML(&buf, n)
+		outputXML(&buf, n, 0, false)
 	} else {
 		for n := n.FirstChild; n != nil; n = n.NextSibling {
-			outputXML(&buf, n)
+			outputXML(&buf, n, 0, false)
 		}
 	}
 
 	return buf.String()
+}
+
+// Same as OutputXML.
+func (n *Node) OutputXMLToWriter(output io.Writer, pretty bool, self bool) {
+	if self {
+		outputXML(output, n, 0, pretty)
+	} else {
+		for n := n.FirstChild; n != nil; n = n.NextSibling {
+			outputXML(output, n, 0, pretty)
+		}
+	}
+}
+
+// Returns true if the attribute existed and was altered; false if it was added.
+func (n *Node) SetAttr(key, val string) bool {
+	for i, attr := range n.Attr {
+		if xml_name2string(attr.Name) == key {
+			n.Attr[i].Value = val
+			return true
+		}
+	}
+	addAttr(n, key, val)
+	return false
+}
+
+// Useful for the @class HTML attribute.
+func (n *Node) AppendAttr(key, val string) {
+	old := n.GetAttrWithDefault(key, "")
+	if old != "" {
+		old += " "
+	}
+	n.SetAttr(key, old + val)
+}
+
+// Returns true if the attribute existed and was deleted; false otherwise.
+func (n *Node) DelAttr(key string) bool {
+	index := -1
+	for i, attr := range n.Attr {
+		if xml_name2string(attr.Name) == key {
+			index = i
+			break
+		}
+	}
+	if index >= 0 {
+		n.Attr = append(n.Attr[:index], n.Attr[index+1:]...)
+		return true
+	}
+	return false
+}
+
+func (n *Node) GetAttrWithDefault(key, empty string) string {
+	ans, ok := n.GetAttr(key)
+	if ok {
+		return ans
+	} else {
+		return empty
+	}
+}
+
+func (n *Node) GetAttr(key string) (string, bool) {
+	for _, attr := range n.Attr {
+		if xml_name2string(attr.Name) == key {
+			return attr.Value, true
+		}
+	}
+	return "", false
 }
 
 func addAttr(n *Node, key, val string) {
@@ -143,6 +340,40 @@ func addAttr(n *Node, key, val string) {
 	n.Attr = append(n.Attr, attr)
 }
 
+func (n *Node) AddChild(child *Node) {
+	addChild(n, child)
+}
+
+// Inserts a node between this and the old parent.
+func (n *Node) Reparent(new_parent *Node) {
+	if new_parent == nil {
+		return
+	}
+	old_parent := n.Parent
+	if old_parent != nil {
+		if old_parent.FirstChild == n {
+			old_parent.FirstChild = new_parent
+		}
+		if old_parent.LastChild == n {
+			old_parent.LastChild = new_parent
+		}
+	}
+	new_parent.Parent = old_parent
+	new_parent.NextSibling = n.NextSibling
+	new_parent.PrevSibling = n.PrevSibling
+	if n.NextSibling != nil {
+		n.NextSibling.PrevSibling = new_parent
+	}
+	if n.PrevSibling != nil {
+		n.PrevSibling.NextSibling = new_parent
+	}
+	addChild(new_parent, n)
+
+	n.Parent = new_parent
+	n.NextSibling = nil
+	n.PrevSibling = nil
+}
+
 func addChild(parent, n *Node) {
 	n.Parent = parent
 	if parent.FirstChild == nil {
@@ -155,6 +386,10 @@ func addChild(parent, n *Node) {
 	parent.LastChild = n
 }
 
+func (n *Node) AddSibling(sibling *Node) {
+	addSibling(sibling, n)
+}
+
 func addSibling(sibling, n *Node) {
 	for t := sibling.NextSibling; t != nil; t = t.NextSibling {
 		sibling = t
@@ -165,6 +400,30 @@ func addSibling(sibling, n *Node) {
 	if sibling.Parent != nil {
 		sibling.Parent.LastChild = n
 	}
+}
+
+func (n *Node) AddBefore(sibling *Node) {
+	if n.Parent != nil && n.Parent.FirstChild == n {
+		n.Parent.FirstChild = sibling
+	}
+	sibling.NextSibling = n
+	if n.PrevSibling != nil {
+		n.PrevSibling.NextSibling = sibling
+	}
+	sibling.PrevSibling = n.PrevSibling
+	n.PrevSibling = sibling
+}
+
+func (n *Node) AddAfter(sibling *Node) {
+	if n.Parent != nil && n.Parent.LastChild == n {
+		n.Parent.LastChild = sibling
+	}
+	sibling.PrevSibling = n
+	if n.NextSibling != nil {
+		n.NextSibling.PrevSibling = sibling
+	}
+	sibling.NextSibling = n.NextSibling
+	n.NextSibling = sibling
 }
 
 // LoadURL loads the XML document from the specified URL.
