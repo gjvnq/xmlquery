@@ -130,20 +130,23 @@ func (n *Node) InnerText() string {
 	return buf.String()
 }
 
-func outputXML(buf io.Writer, n *Node, depth int, pretty bool) {
+func outputXML(buf io.Writer, buf_empty bool, n *Node, depth int, pretty bool) {
+	end_newline := pretty
+
 	if n.Type == TextNode && pretty {
 		space := regexp.MustCompile(`[\s\p{Zs}]+`)
 		pretty_str := space.ReplaceAllString(n.Data, " ")
 		if len(strings.TrimSpace(pretty_str)) != 0 {
-			for i := 0; i < depth; i++ {
-				buf.Write([]byte("\t"))
+			if strings.HasPrefix(pretty_str, " ") {
+				buf.Write([]byte("\n"))
+				for i := 0; i < depth; i++ {
+					buf.Write([]byte("\t"))
+				}
 			}
 			xml.EscapeText(buf, []byte(pretty_str))
-			buf.Write([]byte("\n"))
 			return
 		}
 	}
-
 	if n.Type == TextNode {
 		space := regexp.MustCompile(`[\s\p{Zs}]+`)
 		pretty_str := space.ReplaceAllString(n.Data, " ")
@@ -151,6 +154,14 @@ func outputXML(buf io.Writer, n *Node, depth int, pretty bool) {
 		return
 	}
 	if pretty {
+		if n.PrevSibling == nil {
+			end_newline = !buf_empty
+		} else if n.PrevSibling != nil && n.PrevSibling.Type == TextNode {
+			end_newline = strings.HasSuffix(n.PrevSibling.Data, " ")
+		}
+	}
+	if end_newline {
+		buf.Write([]byte("\n"))
 		for i := 0; i < depth; i++ {
 			buf.Write([]byte("\t"))
 		}
@@ -159,9 +170,6 @@ func outputXML(buf io.Writer, n *Node, depth int, pretty bool) {
 		buf.Write([]byte("<!--"))
 		buf.Write([]byte(n.Data))
 		buf.Write([]byte("-->"))
-		if pretty {
-			buf.Write([]byte("\n"))
-		}
 		return
 	}
 	if n.Type == DeclarationNode {
@@ -185,22 +193,23 @@ func outputXML(buf io.Writer, n *Node, depth int, pretty bool) {
 		buf.Write([]byte("?>"))
 	} else if n.FirstChild == nil {
 		buf.Write([]byte("/>"))
-		if pretty {
-			buf.Write([]byte("\n"))
-		}
 		return
 	} else {
 		buf.Write([]byte(">"))
-		if pretty {
-			buf.Write([]byte("\n"))
-		}
 	}
 	depth++
 	for child := n.FirstChild; child != nil; child = child.NextSibling {
-		outputXML(buf, child, depth, pretty)
+		outputXML(buf, false, child, depth, pretty)
 	}
 	depth--
-	if pretty {
+	end_newline = pretty
+	if pretty && n.LastChild != nil && n.LastChild.Type == TextNode {
+		space := regexp.MustCompile(`[\s\p{Zs}]+`)
+		pretty_str := space.ReplaceAllString(n.LastChild.Data, " ")
+		end_newline = strings.HasSuffix(pretty_str, " ")
+	}
+	if end_newline {
+		buf.Write([]byte("\n"))
 		for i := 0; i < depth; i++ {
 			buf.Write([]byte("\t"))
 		}
@@ -211,9 +220,6 @@ func outputXML(buf io.Writer, n *Node, depth int, pretty bool) {
 		} else {
 			buf.Write([]byte(fmt.Sprintf("</%s:%s>", n.Prefix, n.Data)))
 		}
-	}
-	if pretty {
-		buf.Write([]byte("\n"))
 	}
 }
 
@@ -250,10 +256,10 @@ func (n *Node) DeleteMe() {
 func (n *Node) OutputXML(self bool) string {
 	var buf bytes.Buffer
 	if self {
-		outputXML(&buf, n, 0, false)
+		outputXML(&buf, true, n, 0, false)
 	} else {
 		for n := n.FirstChild; n != nil; n = n.NextSibling {
-			outputXML(&buf, n, 0, false)
+			outputXML(&buf, true, n, 0, false)
 		}
 	}
 
@@ -263,10 +269,10 @@ func (n *Node) OutputXML(self bool) string {
 // Same as OutputXML.
 func (n *Node) OutputXMLToWriter(output io.Writer, pretty bool, self bool) {
 	if self {
-		outputXML(output, n, 0, pretty)
+		outputXML(output, true, n, 0, pretty)
 	} else {
 		for n := n.FirstChild; n != nil; n = n.NextSibling {
-			outputXML(output, n, 0, pretty)
+			outputXML(output, true, n, 0, pretty)
 		}
 	}
 }

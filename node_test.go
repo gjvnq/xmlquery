@@ -1,6 +1,7 @@
 package xmlquery
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -50,7 +51,7 @@ func testAttr(t *testing.T, n *Node, name, expected string) {
 
 func testValue(t *testing.T, val, expected string) {
 	if val != expected {
-		t.Fatalf("expected value is %s,but got %s", expected, val)
+		t.Fatalf("expected value is %q,but got %q", expected, val)
 	}
 }
 
@@ -465,7 +466,7 @@ func TestAddAfter2(t *testing.T) {
 	}
 }
 
-func TestSpaceEdgeCases(t *testing.T) {
+func TestSpaceEdgeCases1(t *testing.T) {
 	s := `<?xml?><a> Link</a>. `
 	doc, _ := Parse(strings.NewReader(s))
 
@@ -473,5 +474,18 @@ func TestSpaceEdgeCases(t *testing.T) {
 	expected := "<?xml?><a> Link</a>. "
 	if got != expected {
 		t.Fatalf("\nexpected: %s\ngot:      %s", expected, got)
+	}
+}
+
+func TestSpaceEdgeCases2(t *testing.T) {
+	s := `<?xml?><root><a> Link</a>. <c>Link2 </c><b>Link2</b></root>`
+	doc, _ := Parse(strings.NewReader(s))
+
+	buf := new(bytes.Buffer)
+	doc.OutputXMLToWriter(buf, true, false)
+	got := buf.String()
+	expected := "<?xml?>\n\n<root>\n\t<a>\n\t\t Link</a>. \n\t<c>Link2 \n\t</c>\n\t<b>Link2</b>\n</root>"
+	if got != expected {
+		t.Fatalf("\nexpected: %q\ngot:      %q", expected, got)
 	}
 }
