@@ -5,11 +5,12 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"golang.org/x/net/html/charset"
 	"io"
 	"net/http"
 	"regexp"
 	"strings"
+
+	"golang.org/x/net/html/charset"
 )
 
 // A NodeType is the type of a Node.
@@ -137,14 +138,16 @@ func outputXML(buf io.Writer, n *Node, depth int, pretty bool) {
 			for i := 0; i < depth; i++ {
 				buf.Write([]byte("\t"))
 			}
-			buf.Write([]byte(pretty_str))
+			xml.EscapeText(buf, []byte(pretty_str))
 			buf.Write([]byte("\n"))
 			return
 		}
 	}
 
 	if n.Type == TextNode {
-		xml.EscapeText(buf, []byte(strings.TrimSpace(n.Data)))
+		space := regexp.MustCompile(`[\s\p{Zs}]+`)
+		pretty_str := space.ReplaceAllString(n.Data, " ")
+		xml.EscapeText(buf, []byte(pretty_str))
 		return
 	}
 	if pretty {
@@ -286,7 +289,7 @@ func (n *Node) AppendAttr(key, val string) {
 	if old != "" {
 		old += " "
 	}
-	n.SetAttr(key, old + val)
+	n.SetAttr(key, old+val)
 }
 
 // Returns true if the attribute existed and was deleted; false otherwise.

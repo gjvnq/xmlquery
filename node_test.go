@@ -176,7 +176,7 @@ func TestParse(t *testing.T) {
 	testAttr(t, findNode(books[1], "title"), "lang", "en")
 	testValue(t, findNode(books[1], "price").InnerText(), "39.95")
 
-	testValue(t, books[0].OutputXML(true), `<book><title lang="en">Harry Potter</title><price>29.99</price></book>`)
+	testValue(t, books[0].OutputXML(true), `<book> <title lang="en">Harry Potter</title> <price>29.99</price> </book>`)
 }
 
 func TestMissDeclaration(t *testing.T) {
@@ -460,6 +460,17 @@ func TestAddAfter2(t *testing.T) {
 	n1.AddAfter(n2)
 	got := doc.OutputXML(false)
 	expected := `<?xml?><a><tag1/><tag2>hi</tag2></a><b>hi2</b><new/>`
+	if got != expected {
+		t.Fatalf("\nexpected: %s\ngot:      %s", expected, got)
+	}
+}
+
+func TestSpaceEdgeCases(t *testing.T) {
+	s := `<?xml?><a> Link</a>. `
+	doc, _ := Parse(strings.NewReader(s))
+
+	got := doc.OutputXML(false)
+	expected := "<?xml?><a> Link</a>. "
 	if got != expected {
 		t.Fatalf("\nexpected: %s\ngot:      %s", expected, got)
 	}
