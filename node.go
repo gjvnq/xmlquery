@@ -524,7 +524,7 @@ func parse(r io.Reader) (*Node, error) {
 		switch tok := tok.(type) {
 		case xml.StartElement:
 			if level == 0 {
-				// mising XML declaration
+				// missing XML declaration
 				node := &Node{Type: DeclarationNode, Data: "xml", level: 1}
 				addChild(prev, node)
 				level = 1
@@ -560,7 +560,7 @@ func parse(r io.Reader) (*Node, error) {
 				Attr:         tok.Attr,
 				level:        level,
 			}
-			//fmt.Println(fmt.Sprintf("start > %s : %d", node.Data, level))
+
 			if level == prev.level {
 				addSibling(prev, node)
 			} else if level > prev.level {
@@ -581,6 +581,11 @@ func parse(r io.Reader) (*Node, error) {
 				addSibling(prev, node)
 			} else if level > prev.level {
 				addChild(prev, node)
+			} else if level < prev.level {
+				for i := prev.level - level; i > 1; i-- {
+					prev = prev.Parent
+				}
+				addSibling(prev.Parent, node)
 			}
 		case xml.Comment:
 			node := &Node{Type: CommentNode, Data: string(tok), level: level}

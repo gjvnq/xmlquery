@@ -113,6 +113,7 @@ func TestNavigator(t *testing.T) {
 	}
 	nav.MoveToParent() // book
 	nav.MoveToNext()   // next book
+	nav.MoveToNext()   // skip some whitespace
 	if nav.curr.SelectAttr("id") != "bk102" {
 		t.Fatal("node error")
 	}

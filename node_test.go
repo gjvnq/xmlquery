@@ -236,17 +236,17 @@ func TestTooNested(t *testing.T) {
 	if aaa == nil {
 		t.Fatal("AAA node not exists")
 	}
-	ccc := aaa.LastChild
+	ccc := aaa.LastChild.PrevSibling
 	if ccc.Data != "CCC" {
 		t.Fatalf("expected node is CCC,but got %s", ccc.Data)
 	}
-	bbb := ccc.PrevSibling
+	bbb := ccc.PrevSibling.PrevSibling
 	if bbb.Data != "BBB" {
 		t.Fatalf("expected node is bbb,but got %s", bbb.Data)
 	}
 	ddd := findNode(bbb, "DDD")
 	testNode(t, ddd, "DDD")
-	testNode(t, ddd.LastChild, "CCC")
+	testNode(t, ddd.LastChild.PrevSibling, "CCC")
 }
 
 func TestSelectElement(t *testing.T) {
@@ -485,6 +485,22 @@ func TestSpaceEdgeCases2(t *testing.T) {
 	doc.OutputXMLToWriter(buf, false, true)
 	got := buf.String()
 	expected := "<?xml?>\n<root>\n\t<a>\n\t\tLink</a>.\n\t<c>Link2\n\t</c>\n\t<b>Link2</b>\n\t<c/>\n\t<d/>\n</root>"
+	if got != expected {
+		t.Fatalf("\nexpected: %q\ngot:      %q", expected, got)
+	}
+}
+
+func TestSpaceEdgeCases3(t *testing.T) {
+	// This parser is bugged
+	s := "<?xml?><root><s>   <a> Link@</a>!</s>LOST <c>Link2 </c><b>Link2</b>   <c/>   <d/></root>"
+	println(s)
+	doc, _ := Parse(strings.NewReader(s))
+	println(doc.OutputXML(false))
+
+	buf := new(bytes.Buffer)
+	doc.OutputXMLToWriter(buf, false, true)
+	got := buf.String()
+	expected := "<?xml?>\n<root>\n\t<s>\n\t\t<a>\n\t\t\tLink@</a>!</s>LOST\n\t<c>Link2\n\t</c>\n\t<b>Link2</b>\n\t<c/>\n\t<d/>\n</root>"
 	if got != expected {
 		t.Fatalf("\nexpected: %q\ngot:      %q", expected, got)
 	}
