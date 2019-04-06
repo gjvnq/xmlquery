@@ -492,13 +492,13 @@ func TestSpaceEdgeCases2(t *testing.T) {
 
 func TestSpaceEdgeCases3(t *testing.T) {
 	// This parser is bugged
-	s := "<?xml?><root><s>   <a> Link@</a>!</s>LOST <c>Link2 </c><b>Link2</b>   <c/>   <d/></root>"
+	s := "<?xml?><z/><root><s><a> Link@</a>!</s> LOST<c>Link2</c><b>Link2 </b>   <c/>   <d/></root>"
 	doc, _ := Parse(strings.NewReader(s))
 
 	buf := new(bytes.Buffer)
 	doc.OutputXMLToWriter(buf, false, true)
 	got := buf.String()
-	expected := "<?xml?>\n<root>\n\t<s>\n\t\t<a>\n\t\t\tLink@</a>!</s>LOST\n\t<c>Link2\n\t</c>\n\t<b>Link2</b>\n\t<c/>\n\t<d/>\n</root>"
+	expected := "<?xml?>\n<z/>\n<root>\n\t<s>\n\t\t<a>\n\t\t\tLink@</a>!</s>\n\tLOST<c>Link2</c><b>Link2\n\t</b>\n\t<c/>\n\t<d/>\n</root>"
 	if got != expected {
 		t.Fatalf("\nexpected: %q\ngot:      %q", expected, got)
 	}
