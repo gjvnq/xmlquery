@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/net/html/charset"
 )
@@ -130,27 +131,80 @@ func (n *Node) InnerText() string {
 	return buf.String()
 }
 
+// Returns true if and only if the node is text consisting only of whitespaces
+func (n *Node) IsEmpty() bool {
+	if n.Type != TextNode {
+		return false
+	}
+	for _, c := range n.Data {
+		if !unicode.IsSpace(c) {
+			return false
+		}
+	}
+	return true
+}
+
+// Replaces all whitespaces sequences with a single whitespace and trims both extremities.
+func (n *Node) TrimText() string {
+	if n.Type != TextNode {
+		return ""
+	}
+	ans := strings.Builder{}
+	got_whitespace := false
+	for _, c := range n.Data {
+		if unicode.IsSpace(c) {
+			got_whitespace = true
+			continue
+		}
+		if got_whitespace && ans.Len() > 0 {
+			_, err := ans.WriteRune(' ')
+			if err != nil {
+				panic(err)
+			}
+		}
+		got_whitespace = false
+		_, err := ans.WriteRune(c)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	return ans.String()
+}
+
+func (n *Node) canhaveWhitespaceBefore() bool {
+	if n.Type != TextNode {
+		return false
+	}
+	char, _ := utf8.DecodeRuneInString(n.Data)
+	return unicode.IsSpace(char)
+}
+
+func (n *Node) canHaveWhitespaceAfter() bool {
+	if n.Type != TextNode {
+		return false
+	}
+	char, _ := utf8.DecodeLastRuneInString(n.Data)
+	return unicode.IsSpace(char)
+}
+
 func outputXML(buf io.Writer, buf_empty bool, n *Node, depth int, pretty bool) {
 	end_newline := pretty
 
 	if n.Type == TextNode && pretty {
-		space := regexp.MustCompile(`[\s\p{Zs}]+`)
-		pretty_str := space.ReplaceAllString(n.Data, " ")
-		if len(strings.TrimSpace(pretty_str)) != 0 {
-			if strings.HasPrefix(pretty_str, " ") {
+		if !n.IsEmpty() {
+			if n.canhaveWhitespaceBefore() {
 				buf.Write([]byte("\n"))
 				for i := 0; i < depth; i++ {
 					buf.Write([]byte("\t"))
 				}
 			}
-			xml.EscapeText(buf, []byte(pretty_str))
-			return
+			xml.EscapeText(buf, []byte(n.TrimText()))
 		}
+		return
 	}
 	if n.Type == TextNode {
-		space := regexp.MustCompile(`[\s\p{Zs}]+`)
-		pretty_str := space.ReplaceAllString(n.Data, " ")
-		xml.EscapeText(buf, []byte(pretty_str))
+		xml.EscapeText(buf, []byte(n.Data))
 		return
 	}
 	if pretty {
@@ -202,11 +256,13 @@ func outputXML(buf io.Writer, buf_empty bool, n *Node, depth int, pretty bool) {
 		outputXML(buf, false, child, depth, pretty)
 	}
 	depth--
-	end_newline = pretty
-	if pretty && n.LastChild != nil && n.LastChild.Type == TextNode {
-		space := regexp.MustCompile(`[\s\p{Zs}]+`)
-		pretty_str := space.ReplaceAllString(n.LastChild.Data, " ")
-		end_newline = strings.HasSuffix(pretty_str, " ")
+	end_newline = false
+	if pretty {
+		if n.LastChild != nil {
+			end_newline = n.LastChild.canHaveWhitespaceAfter()
+		} else if n.Parent != nil {
+			end_newline = n.Parent.canHaveWhitespaceAfter()
+		}
 	}
 	if end_newline {
 		buf.Write([]byte("\n"))
@@ -255,19 +311,19 @@ func (n *Node) DeleteMe() {
 // OutputXML returns the text that including tags name.
 func (n *Node) OutputXML(self bool) string {
 	var buf bytes.Buffer
-	if self {
-		outputXML(&buf, true, n, 0, false)
-	} else {
-		for n := n.FirstChild; n != nil; n = n.NextSibling {
-			outputXML(&buf, true, n, 0, false)
-		}
-	}
-
+	n.OutputXMLToWriter(&buf, self, false)
 	return buf.String()
 }
 
-// Same as OutputXML.
-func (n *Node) OutputXMLToWriter(output io.Writer, pretty bool, self bool) {
+// Same as OutputXML, but pretty.
+func (n *Node) OutputPrettyXML(self bool) string {
+	var buf bytes.Buffer
+	n.OutputXMLToWriter(&buf, self, true)
+	return buf.String()
+}
+
+// Same as OutputXML, but different.
+func (n *Node) OutputXMLToWriter(output io.Writer, self bool, pretty bool) {
 	if self {
 		outputXML(output, true, n, 0, pretty)
 	} else {

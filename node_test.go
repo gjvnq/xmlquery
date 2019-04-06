@@ -177,7 +177,7 @@ func TestParse(t *testing.T) {
 	testAttr(t, findNode(books[1], "title"), "lang", "en")
 	testValue(t, findNode(books[1], "price").InnerText(), "39.95")
 
-	testValue(t, books[0].OutputXML(true), `<book> <title lang="en">Harry Potter</title> <price>29.99</price> </book>`)
+	testValue(t, books[0].OutputPrettyXML(true), "<book>\n\t<title lang=\"en\">Harry Potter</title>\n\t<price>29.99</price>\n</book>")
 }
 
 func TestMissDeclaration(t *testing.T) {
@@ -478,13 +478,68 @@ func TestSpaceEdgeCases1(t *testing.T) {
 }
 
 func TestSpaceEdgeCases2(t *testing.T) {
-	s := `<?xml?><root><a> Link</a>. <c>Link2 </c><b>Link2</b></root>`
+	s := "<?xml?> \n <root> \t  <a> Link</a>. <c>Link2 </c><b>Link2</b> \r\n <c/>  <d/> </root>"
 	doc, _ := Parse(strings.NewReader(s))
 
 	buf := new(bytes.Buffer)
-	doc.OutputXMLToWriter(buf, true, false)
+	doc.OutputXMLToWriter(buf, false, true)
 	got := buf.String()
-	expected := "<?xml?>\n\n<root>\n\t<a>\n\t\t Link</a>. \n\t<c>Link2 \n\t</c>\n\t<b>Link2</b>\n</root>"
+	expected := "<?xml?>\n<root>\n\t<a>\n\t\tLink</a>.\n\t<c>Link2\n\t</c>\n\t<b>Link2</b>\n\t<c/>\n\t<d/>\n</root>"
+	if got != expected {
+		t.Fatalf("\nexpected: %q\ngot:      %q", expected, got)
+	}
+}
+
+func TestTrimText1(t *testing.T) {
+	n := Node{}
+	n.Type = ElementNode
+	n.Data = "b"
+	got := n.TrimText()
+	expected := ""
+	if got != expected {
+		t.Fatalf("\nexpected: %q\ngot:      %q", expected, got)
+	}
+}
+
+func TestTrimText2(t *testing.T) {
+	n := Node{}
+	n.Type = TextNode
+	n.Data = "Lorem   \t \n  Ipsum"
+	got := n.TrimText()
+	expected := "Lorem Ipsum"
+	if got != expected {
+		t.Fatalf("\nexpected: %q\ngot:      %q", expected, got)
+	}
+}
+
+func TestTrimText3(t *testing.T) {
+	n := Node{}
+	n.Type = TextNode
+	n.Data = "   \n \t Lorem   \t \n  Ipsum"
+	got := n.TrimText()
+	expected := "Lorem Ipsum"
+	if got != expected {
+		t.Fatalf("\nexpected: %q\ngot:      %q", expected, got)
+	}
+}
+
+func TestTrimText4(t *testing.T) {
+	n := Node{}
+	n.Type = TextNode
+	n.Data = "Lorem   \t \n  Ipsum\n"
+	got := n.TrimText()
+	expected := "Lorem Ipsum"
+	if got != expected {
+		t.Fatalf("\nexpected: %q\ngot:      %q", expected, got)
+	}
+}
+
+func TestTrimText5(t *testing.T) {
+	n := Node{}
+	n.Type = TextNode
+	n.Data = "\n   \t  \nLorem   \t \n  Ipsum   \t \n "
+	got := n.TrimText()
+	expected := "Lorem Ipsum"
 	if got != expected {
 		t.Fatalf("\nexpected: %q\ngot:      %q", expected, got)
 	}
