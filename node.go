@@ -106,8 +106,12 @@ func (n *Node) String() string {
 		return ans
 	case TextNode:
 		return fmt.Sprintf("Node{%q}", n.Data)
+	case CommentNode:
+		return fmt.Sprintf("Node{<!--%s-->}", n.Data)
+	case DeclarationNode:
+		return fmt.Sprintf("Node{<?%s?>}", n.Data)
 	}
-	return "Node{}"
+	return fmt.Sprintf("Node{%q}", n.Data)
 }
 
 // InnerText returns the text between the start and end tags of the object.
@@ -173,22 +177,22 @@ func (n *Node) TrimText() string {
 }
 
 func (n *Node) canhaveWhitespaceBefore() bool {
-	if n.Type != TextNode {
-		return false
+	if n.Type != TextNode || n.IsEmpty() {
+		return true
 	}
 	char, _ := utf8.DecodeRuneInString(n.Data)
 	return unicode.IsSpace(char)
 }
 
 func (n *Node) canHaveWhitespaceAfter() bool {
-	if n.Type != TextNode {
-		return false
+	if n.Type != TextNode || n.IsEmpty() {
+		return true
 	}
 	char, _ := utf8.DecodeLastRuneInString(n.Data)
 	return unicode.IsSpace(char)
 }
 
-func outputXML(buf io.Writer, buf_empty bool, n *Node, depth int, pretty bool) {
+func outputXML(buf io.Writer, buf_empty bool, n *Node, last_encoded **Node, depth int, pretty bool) {
 	end_newline := pretty
 
 	if n.Type == TextNode && pretty {
@@ -201,10 +205,12 @@ func outputXML(buf io.Writer, buf_empty bool, n *Node, depth int, pretty bool) {
 			}
 			xml.EscapeText(buf, []byte(n.TrimText()))
 		}
+		*last_encoded = n
 		return
 	}
 	if n.Type == TextNode {
 		xml.EscapeText(buf, []byte(n.Data))
+		*last_encoded = n
 		return
 	}
 	if pretty {
@@ -224,6 +230,7 @@ func outputXML(buf io.Writer, buf_empty bool, n *Node, depth int, pretty bool) {
 		buf.Write([]byte("<!--"))
 		buf.Write([]byte(n.Data))
 		buf.Write([]byte("-->"))
+		*last_encoded = n
 		return
 	}
 	if n.Type == DeclarationNode {
@@ -247,24 +254,17 @@ func outputXML(buf io.Writer, buf_empty bool, n *Node, depth int, pretty bool) {
 		buf.Write([]byte("?>"))
 	} else if n.FirstChild == nil {
 		buf.Write([]byte("/>"))
+		*last_encoded = n
 		return
 	} else {
 		buf.Write([]byte(">"))
 	}
 	depth++
 	for child := n.FirstChild; child != nil; child = child.NextSibling {
-		outputXML(buf, false, child, depth, pretty)
+		outputXML(buf, false, child, last_encoded, depth, pretty)
 	}
 	depth--
-	end_newline = false
-	if pretty {
-		if n.LastChild != nil {
-			end_newline = n.LastChild.canHaveWhitespaceAfter()
-		} else if n.Parent != nil {
-			end_newline = n.Parent.canHaveWhitespaceAfter()
-		}
-	}
-	if end_newline {
+	if pretty && *last_encoded != nil && (*last_encoded).canHaveWhitespaceAfter() {
 		buf.Write([]byte("\n"))
 		for i := 0; i < depth; i++ {
 			buf.Write([]byte("\t"))
@@ -277,6 +277,7 @@ func outputXML(buf io.Writer, buf_empty bool, n *Node, depth int, pretty bool) {
 			buf.Write([]byte(fmt.Sprintf("</%s:%s>", n.Prefix, n.Data)))
 		}
 	}
+	*last_encoded = n
 }
 
 // Dereference this node from others so GC can delete them. Also fixes pointers of other nodes.
@@ -324,11 +325,15 @@ func (n *Node) OutputPrettyXML(self bool) string {
 
 // Same as OutputXML, but different.
 func (n *Node) OutputXMLToWriter(output io.Writer, self bool, pretty bool) {
+	var last_encoded **Node
+	last_encoded = new(*Node)
+	*last_encoded = nil
+
 	if self {
-		outputXML(output, true, n, 0, pretty)
+		outputXML(output, true, n, last_encoded, 0, pretty)
 	} else {
 		for n := n.FirstChild; n != nil; n = n.NextSibling {
-			outputXML(output, true, n, 0, pretty)
+			outputXML(output, true, n, last_encoded, 0, pretty)
 		}
 	}
 }

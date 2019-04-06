@@ -493,9 +493,7 @@ func TestSpaceEdgeCases2(t *testing.T) {
 func TestSpaceEdgeCases3(t *testing.T) {
 	// This parser is bugged
 	s := "<?xml?><root><s>   <a> Link@</a>!</s>LOST <c>Link2 </c><b>Link2</b>   <c/>   <d/></root>"
-	println(s)
 	doc, _ := Parse(strings.NewReader(s))
-	println(doc.OutputXML(false))
 
 	buf := new(bytes.Buffer)
 	doc.OutputXMLToWriter(buf, false, true)
